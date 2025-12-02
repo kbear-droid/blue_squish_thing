@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blue Squish Thing Game - Enhanced</title>
+<style>
+  body { margin:0; overflow:hidden; background:#87ceeb; }
+  canvas { background:#87ceeb; display:block; margin:0 auto; }
+</style>
+<link rel="manifest" href="manifest.json">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="450"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+class Player {
+  constructor(color, x, leftKey, rightKey, jumpKey, shootKey, blockKey) {
+    this.color = color;
+    this.x = x;
+    this.y = 350;
+    this.vy = 0;
+    this.onGround = true;
+    this.leftKey = leftKey;
+    this.rightKey = rightKey;
+    this.jumpKey = jumpKey;
+    this.shootKey = shootKey;
+    this.blockKey = blockKey;
+    this.width = 40;
+    this.height = 40;
+    this.keys = {};
+    this.projectiles = [];
+    this.health = 100;
+  }
+  update() {
+    if (this.keys[this.leftKey]) this.x -= 3;
+    if (this.keys[this.rightKey]) this.x += 3;
+
+    if (this.keys[this.shootKey]) this.shoot();
+
+    this.projectiles.forEach(p => p.update());
+    this.projectiles = this.projectiles.filter(p => !p.remove);
+
+    this.vy += 0.8;
+    this.y += this.vy;
+
+    if (this.y > 350) {
+      this.y = 350;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+  jump() {
+    if (this.onGround) {
+      this.vy = -12;
+      this.onGround = false;
+    }
+  }
+  shoot() {
+    if (!this.lastShot || Date.now() - this.lastShot > 300) {
+      this.projectiles.push(new Projectile(this.x, this.y, this.color));
+      this.lastShot = Date.now();
+    }
+  }
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y, 25, 20, 0, 0, Math.PI*2);
+    ctx.fill();
+    this.projectiles.forEach(p => p.draw());
+  }
+}
+
+class Projectile {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.vx = color === "blue" ? 5 : -5;
+    this.remove = false;
+    this.color = color;
+  }
+  update() {
+    this.x += this.vx;
+    if (this.x < 0 || this.x > 800) this.remove = true;
+  }
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, 10, 5);
+  }
+}
+
+let blocks = [];
+class Block {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.w = 40;
+    this.h = 40;
+  }
+  draw() {
+    ctx.fillStyle = "brown";
+    ctx.fillRect(this.x, this.y, this.w, this.h);
+  }
+}
+
+const player1 = new Player("blue", 200, "ArrowLeft", "ArrowRight", "KeyA", "ShiftLeft", "KeyB");
+const player2 = new Player("red", 600, "KeyJ", "KeyL", "KeyI", "KeyK", "KeyN");
+
+function placeBlock(player) {
+  const bx = Math.floor(player.x / 40) * 40;
+  const by = Math.floor(player.y / 40) * 40;
+  blocks.push(new Block(bx, by));
+}
+
+document.addEventListener("keydown", (e)=>{
+  player1.keys[e.code] = true;
+  player2.keys[e.code] = true;
+
+  if (e.code === player1.jumpKey) player1.jump();
+  if (e.code === player2.jumpKey) player2.jump();
+
+  if (e.code === player1.blockKey) placeBlock(player1);
+  if (e.code === player2.blockKey) placeBlock(player2);
+});
+
+document.addEventListener("keyup",(e)=>{
+  player1.keys[e.code] = false;
+  player2.keys[e.code] = false;
+});
+
+function gameLoop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Endless scrolling speed
+  const scrollSpeed = 2;
+
+  // Move blocks left for endless world effect
+  blocks.forEach(b => {
+    b.x -= scrollSpeed;
+  });
+
+  blocks.forEach(b => b.draw());
+
+  player1.update();
+  player2.update();
+  player1.draw();
+  player2.draw();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
